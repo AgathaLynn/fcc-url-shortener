@@ -1,7 +1,5 @@
 'use strict';
 
-
-
 function urlShortener(db) {
     
     var links = db.collection('links');
@@ -9,8 +7,8 @@ function urlShortener(db) {
     
     this.getOriginalURL = function(req, res) {
         
-        var param = decodeURIComponent(req.url.slice(2));
-        console.log(param);
+        var param = decodeURIComponent(req.url.slice(1));
+        
         var query = {"short_param": param};
         var projection = { "_id" : 0, "original_url": 1};
         
@@ -23,7 +21,7 @@ function urlShortener(db) {
             if (result) {
                 res.redirect(result.original_url);
             } else {
-                res.json({"error": "Oops!  We can't find your original URL.  If you were trying to create a new short-form URL, remember to include 'http://' or 'https://' at the beginning of the address."});
+                res.json({"error": "Oops!  We can't find your original URL.  If you are trying to create a new short-form URL, remember to include 'http://' or 'https://' at the beginning of the address."});
             }
             
         });
@@ -49,11 +47,11 @@ function urlShortener(db) {
                 generateShortForm(db, function(short_form) {
                     
                     links.insert({
-                    
+                        
                         "original_url" : param,
                         "short_param" : short_form,
-                        "short_url" : web_address + "/" + short_form
-                    
+                        "short_url" : web_address + short_form
+                        
                     }, function(err) {
                     
                         if (err) {
@@ -67,6 +65,7 @@ function urlShortener(db) {
                             }
                         
                             res.json(doc);
+                            
                         });
                     });
                 });
@@ -79,33 +78,38 @@ function urlShortener(db) {
 
 function generateShortForm(db, callback) {
     
+    function createNextUsed(lastURL) {
+    
+        var allowed_chars = 'qwertyuiopasdfghjklzxcvbnm.1234567890QWERTYUIOPASDFGHJKLZXCVBNM';
+        var array = lastURL.split("");
+        var i = lastURL.length - 1;
+         
+        while (i >= 0 && array[i] == 'M') {
+            array[i] = 'q';
+            i--;
+        }
+        
+        if (i >= 0) {
+            array[i] = allowed_chars[allowed_chars.indexOf(array[i]) + 1];
+        } else {
+            array.unshift('q');
+        }
+        
+        return array.join("");
+        
+    }
+    
     var lastUsed = db.collection('lastUsed');
-    
-    var allowed_chars = 'qwertyuiopasdfghjklzxcvbnm.1234567890QWERTYUIOPASDFGHJKLZXCVBNM';
-    var len = allowed_chars.length;
-    
     var nextUsed = '';
     
     lastUsed.findOne({}, {"_id": false}, function(err, result) {
         
-        if (err) {
-            throw err;
-        }
+        if (err) { throw err; }
         
         if (result) {
             
             var last = result.last;
-            var lastchar = last.charAt(last.length - 1);
-            
-            if (allowed_chars.indexOf(lastchar) + 2 < len) {
-                
-                nextUsed = last.slice(0, last.length - 1) + allowed_chars.charAt(allowed_chars.indexOf(lastchar) + 1);
-                
-            } else {
-                
-                nextUsed = allowed_chars.charAt(0);
-                
-            }
+            nextUsed = createNextUsed(last);
             
             lastUsed.findAndModify(
                 {},
@@ -113,29 +117,23 @@ function generateShortForm(db, callback) {
                 { $set : { "last": nextUsed } },
                 function(err, result) {
                     
-                    if (err) {
-                        throw err;
-                    }
+                    if (err) { throw err; }
                     return callback(nextUsed);
+                    
                 });
 
         } else {
             
-            nextUsed = allowed_chars.charAt(0);
+            nextUsed = 'q';
             
             lastUsed.insert({ "last": nextUsed }, function(err) {
 
-                if (err) {
-                    throw err;
-                }
+                if (err) { throw err; }
                 return callback(nextUsed);
                 
             });
-            
         }
-        
     });
-    
 }
 
 module.exports = urlShortener;
