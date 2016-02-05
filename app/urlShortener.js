@@ -8,15 +8,11 @@ function urlShortener(db) {
     this.getOriginalURL = function(req, res) {
         
         var param = decodeURIComponent(req.url.slice(1));
-        
         var query = {"short_param": param};
-        var projection = { "_id" : 0, "original_url": 1};
         
-        links.findOne(query, projection, function(err, result) {
+        links.findOne(query, function(err, result) {
             
-            if (err) {
-                throw err;
-            }
+            if (err) { throw err; }
             
             if (result) {
                 res.redirect(result.original_url);
@@ -36,9 +32,7 @@ function urlShortener(db) {
         
         links.findOne(query, projection, function(err, result) {
             
-            if (err) {
-                throw err;
-            }
+            if (err) { throw err; }
             
             if (result) {
                 res.json(result);
@@ -54,20 +48,18 @@ function urlShortener(db) {
                         
                     }, function(err) {
                     
-                        if (err) {
-                            throw err;
-                        }
+                        if (err) { throw err; }
                     
                         links.findOne(query, projection, function(err, doc) {
                         
-                            if (err) {
-                                throw err;
-                            }
+                            if (err) { throw err; }
                         
                             res.json(doc);
                             
                         });
+                        
                     });
+                    
                 });
                 
             }
@@ -78,7 +70,10 @@ function urlShortener(db) {
 
 function generateShortForm(db, callback) {
     
-    function createNextUsed(lastURL) {
+    var lastUsed = db.collection('lastUsed');
+    var nextURL = '';
+    
+    function createNextURL(lastURL) {
     
         var allowed_chars = 'qwertyuiopasdfghjklzxcvbnm.1234567890QWERTYUIOPASDFGHJKLZXCVBNM';
         var array = lastURL.split("");
@@ -99,41 +94,44 @@ function generateShortForm(db, callback) {
         
     }
     
-    var lastUsed = db.collection('lastUsed');
-    var nextUsed = '';
-    
     lastUsed.findOne({}, {"_id": false}, function(err, result) {
         
         if (err) { throw err; }
         
         if (result) {
             
-            var last = result.last;
-            nextUsed = createNextUsed(last);
+            nextURL = createNextURL(result.last);
             
             lastUsed.findAndModify(
+                
                 {},
                 { "_id": 1},
-                { $set : { "last": nextUsed } },
+                { $set : { "last": nextURL } },
+                
                 function(err, result) {
                     
                     if (err) { throw err; }
-                    return callback(nextUsed);
+                    
+                    return callback(nextURL);
                     
                 });
 
         } else {
             
-            nextUsed = 'q';
+            nextURL = 'q';
             
-            lastUsed.insert({ "last": nextUsed }, function(err) {
+            lastUsed.insert({ "last": nextURL }, function(err) {
 
                 if (err) { throw err; }
-                return callback(nextUsed);
+                
+                return callback(nextURL);
                 
             });
+            
         }
+        
     });
+    
 }
 
 module.exports = urlShortener;
