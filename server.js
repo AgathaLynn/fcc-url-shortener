@@ -19,6 +19,6 @@ mongo.connect(mongoURL, function(err, db) {
     
 });
 
-app.listen(8080, function() {
+app.listen(process.env.PORT || 8080, function() {
     console.log('listening on port 8080');
 });
